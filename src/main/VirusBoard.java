@@ -6,21 +6,26 @@ import model.*;
 import java.util.*;
 
 /**
- * Main class of the VirusBoard game
+ * Main class of the VirusBoard game - Modified for 2 players
  */
 public class VirusBoard {
     private static final int BOARD_WIDTH = 60;
     private static final int BOARD_HEIGHT = 20;
+    private static final int REQUIRED_HAND_SIZE = 3;
+    private static final int NUM_PLAYERS = 2; // Fixed at 2 players
+    
     private List<Card> deck;
+    private List<Card> discardPile;
     private List<Player> players;
     private Scanner scanner;
     private Map<Player, List<Organ>> organsOnTable;
 
-    public VirusBoard(int numPlayers) {
+    public VirusBoard() {
         this.scanner = new Scanner(System.in);
         this.organsOnTable = new HashMap<>();
+        this.discardPile = new ArrayList<>();
         initializeDeck();
-        initializePlayers(numPlayers);
+        initializePlayers();
         dealInitialCards();
     }
 
@@ -50,9 +55,9 @@ public class VirusBoard {
         Collections.shuffle(deck);
     }
 
-    private void initializePlayers(int numPlayers) {
+    private void initializePlayers() {
         players = new ArrayList<>();
-        for (int i = 0; i < numPlayers; i++) {
+        for (int i = 0; i < NUM_PLAYERS; i++) {
             Player player = new Player("Player " + (i+1));
             players.add(player);
             organsOnTable.put(player, new ArrayList<>());
@@ -60,9 +65,9 @@ public class VirusBoard {
     }
     
     private void dealInitialCards() {
-        // Give 3 cards to each player at the beginning
+        // Give exactly 3 cards to each player at the beginning
         for (Player player : players) {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < REQUIRED_HAND_SIZE; i++) {
                 if (!deck.isEmpty()) {
                     player.getHand().add(deck.remove(0));
                 }
@@ -77,39 +82,47 @@ public class VirusBoard {
             drawBoard(currentPlayer);
             System.out.println("\nTurn of " + players.get(currentPlayer).getName());
 
-            if (deck.isEmpty()) {
-                System.out.println("The deck is empty!");
+            // Check if we need to reshuffle deck
+            if (deck.isEmpty() && !discardPile.isEmpty()) {
                 reshuffleDeck();
             }
 
             System.out.println("\nAvailable actions:");
-            System.out.println("1. Draw card from deck");
-            System.out.println("2. Play card from hand");
-            System.out.println("3. Use special treatment");
+            System.out.println("1. Play card from hand");
+            System.out.println("2. Use special treatment");
+            System.out.println("3. Discard a card");
             System.out.println("4. View current hand");
-            System.out.println("5. Pass turn");
-            System.out.println("6. Exit");
+            System.out.println("5. Exit game");
 
             System.out.print("Select an action: ");
             int action = scanner.nextInt();
 
             switch (action) {
                 case 1:
-                    drawCardFromDeck(currentPlayer);
+                    if (playCardFromHand(currentPlayer)) {
+                        // Draw a card and pass turn
+                        drawCardFromDeck(currentPlayer);
+                        currentPlayer = (currentPlayer + 1) % players.size();
+                    }
                     break;
                 case 2:
-                    playCardFromHand(currentPlayer);
+                    if (useSpecialTreatment(currentPlayer)) {
+                        // Draw a card and pass turn
+                        drawCardFromDeck(currentPlayer);
+                        currentPlayer = (currentPlayer + 1) % players.size();
+                    }
                     break;
                 case 3:
-                    useSpecialTreatment(currentPlayer);
+                    if (discardCard(currentPlayer)) {
+                        // Draw a card and pass turn
+                        drawCardFromDeck(currentPlayer);
+                        currentPlayer = (currentPlayer + 1) % players.size();
+                    }
                     break;
                 case 4:
                     viewCurrentHand(currentPlayer);
                     break;
                 case 5:
-                    currentPlayer = (currentPlayer + 1) % players.size();
-                    break;
-                case 6:
                     System.out.println("Thanks for playing!");
                     return;
                 default:
@@ -141,16 +154,18 @@ public class VirusBoard {
     }
 
     private void clearScreen() {
-        System.out.print("\033[H\033[2J");
-        System.out.flush();
+        // Using a more compatible approach for terminal clearing
+        for (int i = 0; i < 50; i++) {
+            System.out.println();
+        }
     }
 
     private void drawTopBorder() {
-        System.out.println("╔" + "═".repeat(BOARD_WIDTH) + "╗");
+        System.out.println("+" + "-".repeat(BOARD_WIDTH) + "+");
     }
 
     private void drawBottomBorder() {
-        System.out.println("╚" + "═".repeat(BOARD_WIDTH) + "╝");
+        System.out.println("+" + "-".repeat(BOARD_WIDTH) + "+");
     }
 
     private void showCardsOnTable() {
@@ -191,25 +206,29 @@ public class VirusBoard {
     }
 
     private void drawCardFromDeck(int currentPlayer) {
+        if (deck.isEmpty() && !discardPile.isEmpty()) {
+            reshuffleDeck();
+        }
+        
         if (!deck.isEmpty()) {
             Card drawnCard = deck.remove(0);
             players.get(currentPlayer).getHand().add(drawnCard);
             System.out.println("You drew: " + drawnCard.toString());
             waitForEnter();
         } else {
-            System.out.println("The deck is empty.");
+            System.out.println("The deck is empty and there are no cards in the discard pile.");
             waitForEnter();
         }
     }
     
-    private void playCardFromHand(int currentPlayer) {
+    private boolean playCardFromHand(int currentPlayer) {
         Player player = players.get(currentPlayer);
         List<Card> hand = player.getHand();
         
         if (hand.isEmpty()) {
             System.out.println("You have no cards in your hand.");
             waitForEnter();
-            return;
+            return false;
         }
         
         System.out.println("\nSelect a card to play:");
@@ -221,29 +240,31 @@ public class VirusBoard {
         int selection = scanner.nextInt();
         
         if (selection == 0) {
-            return;
+            return false;
         }
         
         if (selection < 1 || selection > hand.size()) {
             System.out.println("Invalid selection.");
             waitForEnter();
-            return;
+            return false;
         }
         
         Card selectedCard = hand.get(selection - 1);
         
         if (selectedCard instanceof Organ) {
             playOrgan(currentPlayer, (Organ) selectedCard);
+            return true;
         } else if (selectedCard instanceof Virus) {
-            playVirus(currentPlayer, (Virus) selectedCard);
+            return playVirus(currentPlayer, (Virus) selectedCard);
         } else if (selectedCard instanceof SpecialTreatment) {
             System.out.println("Special treatments are used from the main menu.");
-            player.getHand().add(selectedCard);
+            waitForEnter();
+            return false;
         } else {
             System.out.println("This type of card cannot be played directly.");
+            waitForEnter();
+            return false;
         }
-        
-        waitForEnter();
     }
     
     private void playOrgan(int currentPlayer, Organ organ) {
@@ -251,76 +272,72 @@ public class VirusBoard {
         player.getHand().remove(organ);
         organsOnTable.get(player).add(organ);
         System.out.println("You have placed a " + organ.getColor() + " organ on the table.");
+        waitForEnter();
     }
     
-    private void playVirus(int currentPlayer, Virus virus) {
+    private boolean playVirus(int currentPlayer, Virus virus) {
         Player player = players.get(currentPlayer);
-        player.getHand().remove(virus);
         
-        // Show all players with organs of the same color
-        List<Player> possibleTargets = new ArrayList<>();
-        for (Map.Entry<Player, List<Organ>> entry : organsOnTable.entrySet()) {
-            for (Organ organ : entry.getValue()) {
-                if (organ.getColor() == virus.getColor() && !organ.isInfected()) {
-                    possibleTargets.add(entry.getKey());
-                    break;
-                }
+        // Find the opponent player
+        Player opponent = null;
+        for (Player p : players) {
+            if (p != player) {
+                opponent = p;
+                break;
             }
         }
         
-        if (possibleTargets.isEmpty()) {
-            System.out.println("There are no compatible organs to infect. The virus is discarded.");
-            return;
+        // Check if opponent has any organs on the table
+        List<Organ> opponentOrgans = organsOnTable.get(opponent);
+        if (opponentOrgans.isEmpty()) {
+            System.out.println("The opponent has no organs to infect. You cannot play this virus.");
+            waitForEnter();
+            return false;
         }
         
-        System.out.println("\nSelect a player to infect:");
-        for (int i = 0; i < possibleTargets.size(); i++) {
-            System.out.printf("%d. %s\n", i + 1, possibleTargets.get(i).getName());
+        // Filter non-infected organs
+        List<Organ> healthyOrgans = new ArrayList<>();
+        for (Organ organ : opponentOrgans) {
+            if (!organ.isInfected()) {
+                healthyOrgans.add(organ);
+            }
         }
         
-        System.out.print("Selection: ");
+        if (healthyOrgans.isEmpty()) {
+            System.out.println("The opponent has no healthy organs to infect. You cannot play this virus.");
+            waitForEnter();
+            return false;
+        }
+        
+        // Choose an organ to infect
+        System.out.println("\nSelect an organ to infect:");
+        for (int i = 0; i < healthyOrgans.size(); i++) {
+            System.out.printf("%d. %s\n", i + 1, healthyOrgans.get(i).toString());
+        }
+        
+        System.out.print("Selection (0 to cancel): ");
         int selection = scanner.nextInt();
         
-        if (selection < 1 || selection > possibleTargets.size()) {
-            System.out.println("Invalid selection. The virus is discarded.");
-            return;
+        if (selection == 0) {
+            return false;
         }
         
-        Player target = possibleTargets.get(selection - 1);
-        List<Organ> targetOrgans = organsOnTable.get(target);
-        
-        // Filter organs of the same color as the virus
-        List<Organ> compatibleOrgans = new ArrayList<>();
-        for (Organ organ : targetOrgans) {
-            if (organ.getColor() == virus.getColor() && !organ.isInfected()) {
-                compatibleOrgans.add(organ);
-            }
+        if (selection < 1 || selection > healthyOrgans.size()) {
+            System.out.println("Invalid selection.");
+            waitForEnter();
+            return false;
         }
         
-        if (compatibleOrgans.isEmpty()) {
-            System.out.println("There are no compatible organs to infect. The virus is discarded.");
-            return;
-        }
-        
-        System.out.println("\nSelect an organ to infect:");
-        for (int i = 0; i < compatibleOrgans.size(); i++) {
-            System.out.printf("%d. %s\n", i + 1, compatibleOrgans.get(i).toString());
-        }
-        
-        System.out.print("Selection: ");
-        int organSelection = scanner.nextInt();
-        
-        if (organSelection < 1 || organSelection > compatibleOrgans.size()) {
-            System.out.println("Invalid selection. The virus is discarded.");
-            return;
-        }
-        
-        Organ targetOrgan = compatibleOrgans.get(organSelection - 1);
+        // Infect the selected organ
+        Organ targetOrgan = healthyOrgans.get(selection - 1);
+        player.getHand().remove(virus);
         targetOrgan.infect();
-        System.out.println("You have infected an organ of " + target.getName() + "!");
+        System.out.println("You have infected an organ of " + opponent.getName() + "!");
+        waitForEnter();
+        return true;
     }
 
-    private void useSpecialTreatment(int currentPlayer) {
+    private boolean useSpecialTreatment(int currentPlayer) {
         Player player = players.get(currentPlayer);
         List<SpecialTreatment> treatments = new ArrayList<>();
 
@@ -333,7 +350,7 @@ public class VirusBoard {
         if (treatments.isEmpty()) {
             System.out.println("You don't have any special treatments to use.");
             waitForEnter();
-            return;
+            return false;
         }
 
         System.out.println("\nAvailable treatments:");
@@ -348,7 +365,7 @@ public class VirusBoard {
         int selection = scanner.nextInt();
         
         if (selection == 0) {
-            return;
+            return false;
         }
         
         selection -= 1;
@@ -358,10 +375,47 @@ public class VirusBoard {
             player.getHand().remove(treatment);
             treatment.apply(player, players);
             waitForEnter();
+            return true;
         } else {
             System.out.println("Invalid selection.");
             waitForEnter();
+            return false;
         }
+    }
+
+    private boolean discardCard(int currentPlayer) {
+        Player player = players.get(currentPlayer);
+        List<Card> hand = player.getHand();
+        
+        if (hand.isEmpty()) {
+            System.out.println("You have no cards to discard.");
+            waitForEnter();
+            return false;
+        }
+        
+        System.out.println("\nSelect a card to discard:");
+        for (int i = 0; i < hand.size(); i++) {
+            System.out.printf("%d. %s\n", i + 1, hand.get(i).toString());
+        }
+        
+        System.out.print("Selection (0 to cancel): ");
+        int selection = scanner.nextInt();
+        
+        if (selection == 0) {
+            return false;
+        }
+        
+        if (selection < 1 || selection > hand.size()) {
+            System.out.println("Invalid selection.");
+            waitForEnter();
+            return false;
+        }
+        
+        Card discardedCard = hand.remove(selection - 1);
+        discardPile.add(discardedCard);
+        System.out.println("You have discarded: " + discardedCard.toString());
+        waitForEnter();
+        return true;
     }
 
     private void viewCurrentHand(int currentPlayer) {
@@ -371,11 +425,14 @@ public class VirusBoard {
     }
     
     private void reshuffleDeck() {
-        System.out.println("Reshuffling the deck...");
+        System.out.println("Reshuffling the discard pile into the deck...");
         
-        // Collect discarded cards (future implementation)
-        // For now, just create a new deck
-        initializeDeck();
+        // Add all cards from the discard pile back to the deck
+        deck.addAll(discardPile);
+        discardPile.clear();
+        
+        // Shuffle the deck
+        Collections.shuffle(deck);
         
         System.out.println("Deck successfully reshuffled.");
     }
@@ -402,16 +459,9 @@ public class VirusBoard {
     }
 
     public static void main(String[] args) {
-        System.out.print("Enter the number of players (2-6): ");
-        Scanner scanner = new Scanner(System.in);
-        int numPlayers = scanner.nextInt();
-
-        if (numPlayers < 2 || numPlayers > 6) {
-            System.out.println("Invalid number of players. Using 3 players by default.");
-            numPlayers = 3;
-        }
-
-        VirusBoard game = new VirusBoard(numPlayers);
+        // Fixed at 2 players, no need to ask for number of players
+        System.out.println("Starting Virus Board Game with 2 players...");
+        VirusBoard game = new VirusBoard();
         game.play();
     }
 }
