@@ -25,8 +25,9 @@ public class Organ extends Card {
     
     @Override
     public String toString() {
-        String state = infected ? "🤢" : "❤️";
-        return getColor().getCode() + state + Color.RESET.getCode();
+        // Using more compatible symbols for terminals
+        String state = infected ? "-INFECTED-" : "-HEALTHY-";
+        return getColor().getCode() + "ORGAN" + state + Color.RESET.getCode();
     }
     
     public boolean isInfected() {
