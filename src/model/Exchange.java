@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
 import enums.Color;
@@ -17,41 +13,35 @@ public class Exchange extends BaseTreatment {
 
     @Override
     public void apply(Player currentPlayer, List<Player> players) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("\nAvailable players to exchange:");
-        for (int i = 0; i < players.size(); i++) {
-            Player otherPlayer = players.get(i);
-            if (otherPlayer != currentPlayer) {
-                System.out.printf("%d. %s (%d cards)\n", 
-                    i + 1, 
-                    otherPlayer.getName(), 
-                    otherPlayer.getHand().size());
+        // In a 2-player game, we only have one opponent
+        Player opponent = null;
+        for (Player player : players) {
+            if (player != currentPlayer) {
+                opponent = player;
+                break;
             }
         }
-
-        System.out.print("Select the number of the player to exchange with: ");
-        int selection = scanner.nextInt() - 1;
-
-        if (selection >= 0 && selection < players.size()) {
-            Player otherPlayer = players.get(selection);
-            if (otherPlayer != currentPlayer) {
-                List<Card> currentPlayerCards = new ArrayList<>(currentPlayer.getHand());
-                List<Card> otherPlayerCards = new ArrayList<>(otherPlayer.getHand());
-                
-                currentPlayer.getHand().clear();
-                otherPlayer.getHand().clear();
-                
-                currentPlayer.getHand().addAll(otherPlayerCards);
-                otherPlayer.getHand().addAll(currentPlayerCards);
-                System.out.println("Exchange completed!");
-            }
-        } else {
-            System.out.println("Invalid selection.");
+        
+        if (opponent == null) {
+            System.out.println("Error: Could not find opponent.");
+            return;
         }
+        
+        System.out.println("Exchanging hands with " + opponent.getName());
+        
+        List<Card> currentPlayerCards = new ArrayList<>(currentPlayer.getHand());
+        List<Card> opponentCards = new ArrayList<>(opponent.getHand());
+        
+        currentPlayer.getHand().clear();
+        opponent.getHand().clear();
+        
+        currentPlayer.getHand().addAll(opponentCards);
+        opponent.getHand().addAll(currentPlayerCards);
+        System.out.println("Exchange completed!");
     }
 
     @Override
     public String toString() {
-        return "\033[36m↔\033[0m";
+        return Color.BLUE.getCode() + "EXCHANGE" + Color.RESET.getCode();
     }
 }
