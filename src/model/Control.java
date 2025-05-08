@@ -4,10 +4,13 @@ import enums.TreatmentType;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
 public class Control extends BaseTreatment {
+    private Map<Player, List<Organ>> organsOnTable;
+    
     public Control() {
         super(Color.YELLOW, TreatmentType.CONTROL);
     }
@@ -17,7 +20,7 @@ public class Control extends BaseTreatment {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\nControl options:");
         System.out.println("1. Draw random card from opponent");
-        System.out.println("2. Exchange specific organ");
+        System.out.println("2. View opponent's hand");
         
         try {
             System.out.print("Select an option: ");
@@ -27,7 +30,7 @@ public class Control extends BaseTreatment {
                     drawRandomCard(currentPlayer, players);
                     break;
                 case 2:
-                    exchangeSpecificOrgan(currentPlayer, players, scanner);
+                    viewOpponentHand(currentPlayer, players);
                     break;
                 default:
                     System.out.println("Invalid option. Please select 1 or 2.");
@@ -66,7 +69,7 @@ public class Control extends BaseTreatment {
         System.out.println("You have drawn a random card from " + opponent.getName() + ": " + stolenCard.toString());
     }
     
-    private void exchangeSpecificOrgan(Player currentPlayer, List<Player> players, Scanner scanner) {
+    private void viewOpponentHand(Player currentPlayer, List<Player> players) {
         // In a 2-player game, we only have one opponent
         Player opponent = null;
         for (Player p : players) {
@@ -81,27 +84,20 @@ public class Control extends BaseTreatment {
             return;
         }
         
-        // Get organs of the current player
-        List<Organ> playerOrgans = getOrgans(currentPlayer);
-        List<Organ> opponentOrgans = getOrgans(opponent);
-        
-        if (playerOrgans.isEmpty()) {
-            System.out.println("You don't have any organs to exchange.");
+        List<Card> opponentHand = opponent.getHand();
+        if (opponentHand.isEmpty()) {
+            System.out.println(opponent.getName() + " has no cards in hand.");
             return;
         }
         
-        if (opponentOrgans.isEmpty()) {
-            System.out.println("Your opponent doesn't have any organs to exchange.");
-            return;
+        System.out.println("\n" + opponent.getName() + "'s hand:");
+        for (int i = 0; i < opponentHand.size(); i++) {
+            System.out.printf("%d. %s\n", i + 1, opponentHand.get(i).toString());
         }
-        
-        // Select organ from current player
-        System.out.println("\nSelect an organ to exchange:");
-        showOptions(playerOrgans);
-        
-        int organSelection;
-        try {
-            System.out.print("Selection: ");
-            organSelection = scanner.nextInt() - 1;
-            
-            if (organSelection < 0 || organSelection >= playerOrgans.size())
+    }
+    
+    @Override
+    public String toString() {
+        return Color.YELLOW.getCode() + "CONTROL" + Color.RESET.getCode();
+    }
+}
