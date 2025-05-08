@@ -20,11 +20,13 @@ public class Reikan extends BaseTreatment {
         // List to keep track of the owners of each card
         List<Player> owners = new ArrayList<>();
         
-        // Collect all cards and their owners
+        // Collect all cards and their owners (except current player)
         for (Player player : players) {
-            for (Card card : player.getHand()) {
-                allCards.add(card);
-                owners.add(player);
+            if (player != currentPlayer) {
+                for (Card card : player.getHand()) {
+                    allCards.add(card);
+                    owners.add(player);
+                }
             }
         }
         
@@ -68,6 +70,6 @@ public class Reikan extends BaseTreatment {
     
     @Override
     public String toString() {
-        return "\033[35m✨\033[0m";
+        return Color.MULTICOLOR.getCode() + "INFORMATION" + Color.RESET.getCode();
     }
 }
