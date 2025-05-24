@@ -1,29 +1,55 @@
-package main;
+package gui;
 
 import enums.Color;
+import enums.TreatmentType;
 import interfaces.SpecialTreatment;
 import model.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.*;
+import java.util.List;
 
 /**
- * Main class of the VirusBoard game
+ * GUI Version of the Virus Board Game using JFrame
  */
-public class VirusBoard {
-    private static final int BOARD_WIDTH = 60;
-    private static final int BOARD_HEIGHT = 20;
+public class VirusBoardGUI extends JFrame {
+    private static final int NUM_PLAYERS = 2;
+    private static final int REQUIRED_HAND_SIZE = 3;
+    
+    // Game components
     private List<Card> deck;
+    private List<Card> discardPile;
     private List<Player> players;
-    private Scanner scanner;
     private Map<Player, List<Organ>> organsOnTable;
-
-    public VirusBoard(int numPlayers) {
-        this.scanner = new Scanner(System.in);
+    private int currentPlayerIndex = 0;
+    
+    // GUI components
+    private JPanel mainPanel;
+    private JPanel gameBoard;
+    private JPanel currentPlayerPanel;
+    private JPanel opponentPanel;
+    private JPanel actionPanel;
+    private JLabel statusLabel;
+    private JLabel currentPlayerLabel;
+    private JScrollPane handScrollPane;
+    private java.awt.Color[] playerColors = {java.awt.Color.LIGHT_GRAY, java.awt.Color.CYAN};
+    
+    public VirusBoardGUI() {
+        initializeGame();
+        setupGUI();
+        updateDisplay();
+    }
+    
+    private void initializeGame() {
         this.organsOnTable = new HashMap<>();
+        this.discardPile = new ArrayList<>();
         initializeDeck();
-        initializePlayers(numPlayers);
+        initializePlayers();
         dealInitialCards();
     }
-
+    
     private void initializeDeck() {
         deck = new ArrayList<>();
         
@@ -46,372 +72,567 @@ public class VirusBoard {
         deck.add(new Exchange());
         deck.add(new Control());
 
-        // Shuffle the deck
         Collections.shuffle(deck);
     }
-
-    private void initializePlayers(int numPlayers) {
+    
+    private void initializePlayers() {
         players = new ArrayList<>();
-        for (int i = 0; i < numPlayers; i++) {
-            Player player = new Player("Player " + (i+1));
+        for (int i = 0; i < NUM_PLAYERS; i++) {
+            Player player = new Player("Player " + (i + 1));
             players.add(player);
             organsOnTable.put(player, new ArrayList<>());
         }
     }
     
     private void dealInitialCards() {
-        // Give 3 cards to each player at the beginning
         for (Player player : players) {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < REQUIRED_HAND_SIZE; i++) {
                 if (!deck.isEmpty()) {
                     player.getHand().add(deck.remove(0));
                 }
             }
         }
     }
-
-    public void play() {
-        int currentPlayer = 0;
-
-        while (true) {
-            drawBoard(currentPlayer);
-            System.out.println("\nTurn of " + players.get(currentPlayer).getName());
-
-            if (deck.isEmpty()) {
-                System.out.println("The deck is empty!");
-                reshuffleDeck();
-            }
-
-            System.out.println("\nAvailable actions:");
-            System.out.println("1. Draw card from deck");
-            System.out.println("2. Play card from hand");
-            System.out.println("3. Use special treatment");
-            System.out.println("4. View current hand");
-            System.out.println("5. Pass turn");
-            System.out.println("6. Exit");
-
-            System.out.print("Select an action: ");
-            int action = scanner.nextInt();
-
-            switch (action) {
-                case 1:
-                    drawCardFromDeck(currentPlayer);
-                    break;
-                case 2:
-                    playCardFromHand(currentPlayer);
-                    break;
-                case 3:
-                    useSpecialTreatment(currentPlayer);
-                    break;
-                case 4:
-                    viewCurrentHand(currentPlayer);
-                    break;
-                case 5:
-                    currentPlayer = (currentPlayer + 1) % players.size();
-                    break;
-                case 6:
-                    System.out.println("Thanks for playing!");
-                    return;
-                default:
-                    System.out.println("Invalid option.");
-            }
-
-            if (hasWon(currentPlayer)) {
-                drawBoard(currentPlayer);
-                System.out.println("\nCongratulations " + players.get(currentPlayer).getName() + "! You have won!");
-                return;
-            }
-        }
+    
+    private void setupGUI() {
+        setTitle("Virus Board Game");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(1200, 800);
+        setLocationRelativeTo(null);
+        
+        mainPanel = new JPanel(new BorderLayout());
+        
+        // Status panel
+        JPanel statusPanel = new JPanel(new FlowLayout());
+        currentPlayerLabel = new JLabel("Current Player: " + getCurrentPlayer().getName());
+        currentPlayerLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        statusLabel = new JLabel("Welcome to Virus Board Game!");
+        statusPanel.add(currentPlayerLabel);
+        statusPanel.add(Box.createHorizontalStrut(20));
+        statusPanel.add(statusLabel);
+        
+        // Game board (organs on table)
+        gameBoard = new JPanel();
+        gameBoard.setLayout(new BoxLayout(gameBoard, BoxLayout.Y_AXIS));
+        gameBoard.setBorder(BorderFactory.createTitledBorder("Organs on Table"));
+        
+        // Current player's hand panel
+        currentPlayerPanel = new JPanel();
+        currentPlayerPanel.setBorder(BorderFactory.createTitledBorder("Your Hand"));
+        handScrollPane = new JScrollPane(currentPlayerPanel);
+        handScrollPane.setPreferredSize(new Dimension(1200, 150));
+        
+        // Opponent info panel
+        opponentPanel = new JPanel();
+        opponentPanel.setBorder(BorderFactory.createTitledBorder("Opponent"));
+        
+        // Action buttons panel
+        actionPanel = new JPanel(new FlowLayout());
+        setupActionButtons();
+        
+        // Layout
+        mainPanel.add(statusPanel, BorderLayout.NORTH);
+        mainPanel.add(gameBoard, BorderLayout.CENTER);
+        
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(opponentPanel, BorderLayout.NORTH);
+        bottomPanel.add(handScrollPane, BorderLayout.CENTER);
+        bottomPanel.add(actionPanel, BorderLayout.SOUTH);
+        
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        
+        add(mainPanel);
     }
-
-    private void drawBoard(int currentPlayer) {
-        clearScreen();
-        drawTopBorder();
-
-        System.out.println("\nCards on the table:");
-        showCardsOnTable();
-
-        System.out.println("\nYour hand (" + players.get(currentPlayer).getName() + "):");
-        showPlayerHand(currentPlayer);
-
-        System.out.println("\nOther players:");
-        showPlayersInfo(currentPlayer);
-
-        drawBottomBorder();
+    
+    private void setupActionButtons() {
+        JButton playCardBtn = new JButton("Play Card");
+        JButton useSpecialBtn = new JButton("Use Special Treatment");
+        JButton discardBtn = new JButton("Discard Card");
+        JButton endTurnBtn = new JButton("End Turn");
+        
+        playCardBtn.addActionListener(e -> playSelectedCard());
+        useSpecialBtn.addActionListener(e -> useSpecialTreatment());
+        discardBtn.addActionListener(e -> discardSelectedCard());
+        endTurnBtn.addActionListener(e -> endTurn());
+        
+        actionPanel.add(playCardBtn);
+        actionPanel.add(useSpecialBtn);
+        actionPanel.add(discardBtn);
+        actionPanel.add(endTurnBtn);
     }
-
-    private void clearScreen() {
-        System.out.print("\033[H\033[2J");
-        System.out.flush();
+    
+    private void updateDisplay() {
+        updateGameBoard();
+        updateCurrentPlayerHand();
+        updateOpponentInfo();
+        updateStatusLabel();
+        currentPlayerLabel.setText("Current Player: " + getCurrentPlayer().getName());
+        
+        // Update panel backgrounds to show current player
+        currentPlayerPanel.setBackground(playerColors[currentPlayerIndex]);
+        
+        repaint();
     }
-
-    private void drawTopBorder() {
-        System.out.println("╔" + "═".repeat(BOARD_WIDTH) + "╗");
-    }
-
-    private void drawBottomBorder() {
-        System.out.println("╚" + "═".repeat(BOARD_WIDTH) + "╝");
-    }
-
-    private void showCardsOnTable() {
-        for (Map.Entry<Player, List<Organ>> entry : organsOnTable.entrySet()) {
-            Player player = entry.getKey();
-            List<Organ> organs = entry.getValue();
+    
+    private void updateGameBoard() {
+        gameBoard.removeAll();
+        
+        for (int i = 0; i < players.size(); i++) {
+            Player player = players.get(i);
+            List<Organ> organs = organsOnTable.get(player);
             
-            System.out.print(player.getName() + ": ");
+            JPanel playerOrganPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            playerOrganPanel.setBorder(BorderFactory.createTitledBorder(player.getName() + "'s Organs"));
+            playerOrganPanel.setBackground(playerColors[i]);
+            
             if (organs.isEmpty()) {
-                System.out.println("No organs on table.");
+                playerOrganPanel.add(new JLabel("No organs"));
             } else {
                 for (Organ organ : organs) {
-                    System.out.print(organ.toString() + " ");
+                    JPanel organCard = createOrganCard(organ);
+                    playerOrganPanel.add(organCard);
                 }
-                System.out.println();
             }
+            
+            gameBoard.add(playerOrganPanel);
         }
+        
+        gameBoard.revalidate();
     }
-
-    private void showPlayerHand(int currentPlayer) {
-        Player player = players.get(currentPlayer);
-        for (int i = 0; i < player.getHand().size(); i++) {
-            Card card = player.getHand().get(i);
-            System.out.printf("%d. %s\n", i + 1, card.toString());
+    
+    private void updateCurrentPlayerHand() {
+        currentPlayerPanel.removeAll();
+        currentPlayerPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        
+        Player currentPlayer = getCurrentPlayer();
+        for (int i = 0; i < currentPlayer.getHand().size(); i++) {
+            Card card = currentPlayer.getHand().get(i);
+            JPanel cardPanel = createCardPanel(card, i);
+            currentPlayerPanel.add(cardPanel);
         }
+        
+        currentPlayerPanel.revalidate();
     }
-
-    private void showPlayersInfo(int currentPlayer) {
-        for (int i = 0; i < players.size(); i++) {
-            if (i != currentPlayer) {
-                Player player = players.get(i);
-                System.out.printf("%s (%d cards in hand, %d organs on table)\n", 
-                    player.getName(), 
-                    player.getHand().size(),
-                    organsOnTable.get(player).size());
-            }
+    
+    private void updateOpponentInfo() {
+        opponentPanel.removeAll();
+        opponentPanel.setLayout(new FlowLayout());
+        
+        Player opponent = getOpponent();
+        JLabel opponentInfo = new JLabel(String.format("%s: %d cards in hand, %d organs on table", 
+            opponent.getName(), 
+            opponent.getHand().size(), 
+            organsOnTable.get(opponent).size()));
+        opponentInfo.setFont(new Font("Arial", Font.PLAIN, 14));
+        
+        opponentPanel.add(opponentInfo);
+        opponentPanel.revalidate();
+    }
+    
+    private void updateStatusLabel() {
+        statusLabel.setText("Deck: " + deck.size() + " cards | Discard: " + discardPile.size() + " cards");
+    }
+    
+    private JPanel createCardPanel(Card card, int index) {
+        JPanel cardPanel = new JPanel();
+        cardPanel.setLayout(new BoxLayout(cardPanel, BoxLayout.Y_AXIS));
+        cardPanel.setBorder(BorderFactory.createRaisedBevelBorder());
+        cardPanel.setPreferredSize(new Dimension(100, 80));
+        cardPanel.setBackground(getCardColor(card));
+        
+        JLabel typeLabel = new JLabel(getCardType(card), SwingConstants.CENTER);
+        typeLabel.setFont(new Font("Arial", Font.BOLD, 10));
+        typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JLabel colorLabel = new JLabel(card.getColor().toString(), SwingConstants.CENTER);
+        colorLabel.setFont(new Font("Arial", Font.PLAIN, 9));
+        colorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JLabel indexLabel = new JLabel(String.valueOf(index + 1), SwingConstants.CENTER);
+        indexLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        indexLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        cardPanel.add(Box.createVerticalGlue());
+        cardPanel.add(typeLabel);
+        cardPanel.add(colorLabel);
+        if (card instanceof Organ && ((Organ) card).isInfected()) {
+            JLabel infectedLabel = new JLabel("INFECTED", SwingConstants.CENTER);
+            infectedLabel.setFont(new Font("Arial", Font.BOLD, 8));
+            infectedLabel.setForeground(java.awt.Color.RED);
+            infectedLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            cardPanel.add(infectedLabel);
         }
+        cardPanel.add(indexLabel);
+        cardPanel.add(Box.createVerticalGlue());
+        
+        return cardPanel;
     }
-
-    private void drawCardFromDeck(int currentPlayer) {
-        if (!deck.isEmpty()) {
-            Card drawnCard = deck.remove(0);
-            players.get(currentPlayer).getHand().add(drawnCard);
-            System.out.println("You drew: " + drawnCard.toString());
-            waitForEnter();
-        } else {
-            System.out.println("The deck is empty.");
-            waitForEnter();
+    
+    private JPanel createOrganCard(Organ organ) {
+        JPanel organPanel = new JPanel();
+        organPanel.setLayout(new BoxLayout(organPanel, BoxLayout.Y_AXIS));
+        organPanel.setBorder(BorderFactory.createRaisedBevelBorder());
+        organPanel.setPreferredSize(new Dimension(80, 60));
+        organPanel.setBackground(getCardColor(organ));
+        
+        JLabel typeLabel = new JLabel("ORGAN", SwingConstants.CENTER);
+        typeLabel.setFont(new Font("Arial", Font.BOLD, 10));
+        typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JLabel colorLabel = new JLabel(organ.getColor().toString(), SwingConstants.CENTER);
+        colorLabel.setFont(new Font("Arial", Font.PLAIN, 9));
+        colorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        organPanel.add(Box.createVerticalGlue());
+        organPanel.add(typeLabel);
+        organPanel.add(colorLabel);
+        
+        if (organ.isInfected()) {
+            JLabel infectedLabel = new JLabel("INFECTED", SwingConstants.CENTER);
+            infectedLabel.setFont(new Font("Arial", Font.BOLD, 8));
+            infectedLabel.setForeground(java.awt.Color.RED);
+            infectedLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            organPanel.add(infectedLabel);
+        }
+        
+        organPanel.add(Box.createVerticalGlue());
+        
+        return organPanel;
+    }
+    
+    private java.awt.Color getCardColor(Card card) {
+        switch (card.getColor()) {
+            case RED: return new java.awt.Color(255, 200, 200);
+            case GREEN: return new java.awt.Color(200, 255, 200);
+            case BLUE: return new java.awt.Color(200, 200, 255);
+            case YELLOW: return new java.awt.Color(255, 255, 200);
+            case MULTICOLOR: return new java.awt.Color(255, 200, 255);
+            default: return java.awt.Color.WHITE;
         }
     }
     
-    private void playCardFromHand(int currentPlayer) {
-        Player player = players.get(currentPlayer);
-        List<Card> hand = player.getHand();
-        
-        if (hand.isEmpty()) {
-            System.out.println("You have no cards in your hand.");
-            waitForEnter();
-            return;
+    private String getCardType(Card card) {
+        if (card instanceof Organ) return "ORGAN";
+        if (card instanceof Virus) return "VIRUS";
+        if (card instanceof SpecialTreatment) {
+            SpecialTreatment treatment = (SpecialTreatment) card;
+            return treatment.getType().toString();
         }
-        
-        System.out.println("\nSelect a card to play:");
-        for (int i = 0; i < hand.size(); i++) {
-            System.out.printf("%d. %s\n", i + 1, hand.get(i).toString());
-        }
-        
-        System.out.print("Selection (0 to cancel): ");
-        int selection = scanner.nextInt();
-        
-        if (selection == 0) {
-            return;
-        }
-        
-        if (selection < 1 || selection > hand.size()) {
-            System.out.println("Invalid selection.");
-            waitForEnter();
-            return;
-        }
-        
-        Card selectedCard = hand.get(selection - 1);
-        
-        if (selectedCard instanceof Organ) {
-            playOrgan(currentPlayer, (Organ) selectedCard);
-        } else if (selectedCard instanceof Virus) {
-            playVirus(currentPlayer, (Virus) selectedCard);
-        } else if (selectedCard instanceof SpecialTreatment) {
-            System.out.println("Special treatments are used from the main menu.");
-            player.getHand().add(selectedCard);
-        } else {
-            System.out.println("This type of card cannot be played directly.");
-        }
-        
-        waitForEnter();
+        return "CARD";
     }
     
-    private void playOrgan(int currentPlayer, Organ organ) {
-        Player player = players.get(currentPlayer);
+    private Player getCurrentPlayer() {
+        return players.get(currentPlayerIndex);
+    }
+    
+    private Player getOpponent() {
+        return players.get((currentPlayerIndex + 1) % players.size());
+    }
+    
+    private void playSelectedCard() {
+        String input = JOptionPane.showInputDialog(this, 
+            "Enter the number of the card to play (1-" + getCurrentPlayer().getHand().size() + "):");
+        
+        if (input == null || input.trim().isEmpty()) return;
+        
+        try {
+            int cardIndex = Integer.parseInt(input.trim()) - 1;
+            Player currentPlayer = getCurrentPlayer();
+            
+            if (cardIndex < 0 || cardIndex >= currentPlayer.getHand().size()) {
+                JOptionPane.showMessageDialog(this, "Invalid card number!");
+                return;
+            }
+            
+            Card selectedCard = currentPlayer.getHand().get(cardIndex);
+            
+            if (selectedCard instanceof Organ) {
+                playOrgan(currentPlayer, (Organ) selectedCard);
+                endTurn();
+            } else if (selectedCard instanceof Virus) {
+                if (playVirus(currentPlayer, (Virus) selectedCard)) {
+                    endTurn();
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Use 'Use Special Treatment' button for special cards!");
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid number!");
+        }
+    }
+    
+    private void playOrgan(Player player, Organ organ) {
         player.getHand().remove(organ);
         organsOnTable.get(player).add(organ);
-        System.out.println("You have placed a " + organ.getColor() + " organ on the table.");
+        JOptionPane.showMessageDialog(this, "You placed a " + organ.getColor() + " organ on the table!");
     }
     
-    private void playVirus(int currentPlayer, Virus virus) {
-        Player player = players.get(currentPlayer);
-        player.getHand().remove(virus);
+    private boolean playVirus(Player player, Virus virus) {
+        Player opponent = getOpponent();
+        List<Organ> opponentOrgans = organsOnTable.get(opponent);
         
-        // Show all players with organs of the same color
-        List<Player> possibleTargets = new ArrayList<>();
-        for (Map.Entry<Player, List<Organ>> entry : organsOnTable.entrySet()) {
-            for (Organ organ : entry.getValue()) {
-                if (organ.getColor() == virus.getColor() && !organ.isInfected()) {
-                    possibleTargets.add(entry.getKey());
-                    break;
-                }
+        List<Organ> healthyOrgans = new ArrayList<>();
+        for (Organ organ : opponentOrgans) {
+            if (!organ.isInfected()) {
+                healthyOrgans.add(organ);
             }
         }
         
-        if (possibleTargets.isEmpty()) {
-            System.out.println("There are no compatible organs to infect. The virus is discarded.");
-            return;
+        if (healthyOrgans.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "The opponent has no healthy organs to infect!");
+            return false;
         }
         
-        System.out.println("\nSelect a player to infect:");
-        for (int i = 0; i < possibleTargets.size(); i++) {
-            System.out.printf("%d. %s\n", i + 1, possibleTargets.get(i).getName());
+        String[] organOptions = new String[healthyOrgans.size()];
+        for (int i = 0; i < healthyOrgans.size(); i++) {
+            organOptions[i] = (i + 1) + ". " + healthyOrgans.get(i).getColor() + " ORGAN";
         }
         
-        System.out.print("Selection: ");
-        int selection = scanner.nextInt();
+        String choice = (String) JOptionPane.showInputDialog(this, 
+            "Select an organ to infect:", 
+            "Play Virus", 
+            JOptionPane.QUESTION_MESSAGE, 
+            null, 
+            organOptions, 
+            organOptions[0]);
         
-        if (selection < 1 || selection > possibleTargets.size()) {
-            System.out.println("Invalid selection. The virus is discarded.");
-            return;
+        if (choice != null) {
+            int organIndex = Integer.parseInt(choice.substring(0, 1)) - 1;
+            Organ targetOrgan = healthyOrgans.get(organIndex);
+            
+            player.getHand().remove(virus);
+            targetOrgan.infect();
+            JOptionPane.showMessageDialog(this, "You infected " + opponent.getName() + "'s " + targetOrgan.getColor() + " organ!");
+            return true;
         }
         
-        Player target = possibleTargets.get(selection - 1);
-        List<Organ> targetOrgans = organsOnTable.get(target);
-        
-        // Filter organs of the same color as the virus
-        List<Organ> compatibleOrgans = new ArrayList<>();
-        for (Organ organ : targetOrgans) {
-            if (organ.getColor() == virus.getColor() && !organ.isInfected()) {
-                compatibleOrgans.add(organ);
-            }
-        }
-        
-        if (compatibleOrgans.isEmpty()) {
-            System.out.println("There are no compatible organs to infect. The virus is discarded.");
-            return;
-        }
-        
-        System.out.println("\nSelect an organ to infect:");
-        for (int i = 0; i < compatibleOrgans.size(); i++) {
-            System.out.printf("%d. %s\n", i + 1, compatibleOrgans.get(i).toString());
-        }
-        
-        System.out.print("Selection: ");
-        int organSelection = scanner.nextInt();
-        
-        if (organSelection < 1 || organSelection > compatibleOrgans.size()) {
-            System.out.println("Invalid selection. The virus is discarded.");
-            return;
-        }
-        
-        Organ targetOrgan = compatibleOrgans.get(organSelection - 1);
-        targetOrgan.infect();
-        System.out.println("You have infected an organ of " + target.getName() + "!");
+        return false;
     }
-
-    private void useSpecialTreatment(int currentPlayer) {
-        Player player = players.get(currentPlayer);
+    
+    private void useSpecialTreatment() {
+        Player currentPlayer = getCurrentPlayer();
         List<SpecialTreatment> treatments = new ArrayList<>();
-
-        for (Card card : player.getHand()) {
+        List<Integer> treatmentIndices = new ArrayList<>();
+        
+        for (int i = 0; i < currentPlayer.getHand().size(); i++) {
+            Card card = currentPlayer.getHand().get(i);
             if (card instanceof SpecialTreatment) {
                 treatments.add((SpecialTreatment) card);
+                treatmentIndices.add(i);
             }
         }
-
+        
         if (treatments.isEmpty()) {
-            System.out.println("You don't have any special treatments to use.");
-            waitForEnter();
+            JOptionPane.showMessageDialog(this, "You don't have any special treatments!");
             return;
         }
-
-        System.out.println("\nAvailable treatments:");
+        
+        String[] treatmentOptions = new String[treatments.size()];
         for (int i = 0; i < treatments.size(); i++) {
-            System.out.printf("%d. %s (%s)\n", 
-                i + 1, 
-                treatments.get(i).toString(), 
-                treatments.get(i).getType());
-        }
-
-        System.out.print("Select the treatment number to use (0 to cancel): ");
-        int selection = scanner.nextInt();
-        
-        if (selection == 0) {
-            return;
+            treatmentOptions[i] = (i + 1) + ". " + treatments.get(i).getType();
         }
         
-        selection -= 1;
-
-        if (selection >= 0 && selection < treatments.size()) {
-            SpecialTreatment treatment = treatments.get(selection);
-            player.getHand().remove(treatment);
-            treatment.apply(player, players);
-            waitForEnter();
-        } else {
-            System.out.println("Invalid selection.");
-            waitForEnter();
+        String choice = (String) JOptionPane.showInputDialog(this, 
+            "Select a special treatment to use:", 
+            "Use Special Treatment", 
+            JOptionPane.QUESTION_MESSAGE, 
+            null, 
+            treatmentOptions, 
+            treatmentOptions[0]);
+        
+        if (choice != null) {
+            int treatmentIndex = Integer.parseInt(choice.substring(0, 1)) - 1;
+            SpecialTreatment treatment = treatments.get(treatmentIndex);
+            
+            currentPlayer.getHand().remove(treatment);
+            
+            // Apply the treatment using a custom implementation for GUI
+            applySpecialTreatmentGUI(treatment, currentPlayer);
+            
+            endTurn();
         }
-    }
-
-    private void viewCurrentHand(int currentPlayer) {
-        System.out.println("\nYour hand:");
-        showPlayerHand(currentPlayer);
-        waitForEnter();
     }
     
-    private void reshuffleDeck() {
-        System.out.println("Reshuffling the deck...");
+    private void applySpecialTreatmentGUI(SpecialTreatment treatment, Player currentPlayer) {
+        Player opponent = getOpponent();
         
-        // Collect discarded cards (future implementation)
-        // For now, just create a new deck
-        initializeDeck();
-        
-        System.out.println("Deck successfully reshuffled.");
-    }
-    
-    private void waitForEnter() {
-        System.out.println("\nPress Enter to continue...");
-        scanner.nextLine(); // Consume pending newline
-        scanner.nextLine(); // Wait for Enter key
-    }
-
-    private boolean hasWon(int currentPlayer) {
-        // A player wins when they have 4 different organs (not infected) on the table
-        Player player = players.get(currentPlayer);
-        List<Organ> organs = organsOnTable.get(player);
-        
-        Set<Color> organColors = new HashSet<>();
-        for (Organ organ : organs) {
-            if (!organ.isInfected()) {
-                organColors.add(organ.getColor());
+        if (treatment.getType() == TreatmentType.EXCHANGE) {
+            // Exchange hands
+            List<Card> tempHand = new ArrayList<>(currentPlayer.getHand());
+            currentPlayer.getHand().clear();
+            currentPlayer.getHand().addAll(opponent.getHand());
+            opponent.getHand().clear();
+            opponent.getHand().addAll(tempHand);
+            JOptionPane.showMessageDialog(this, "Hands exchanged with " + opponent.getName() + "!");
+            
+        } else if (treatment.getType() == TreatmentType.CONTROL) {
+            String[] options = {"Draw random card", "View opponent's hand"};
+            String choice = (String) JOptionPane.showInputDialog(this, 
+                "Choose control action:", 
+                "Control", 
+                JOptionPane.QUESTION_MESSAGE, 
+                null, 
+                options, 
+                options[0]);
+            
+            if (choice != null) {
+                if (choice.equals("Draw random card")) {
+                    if (!opponent.getHand().isEmpty()) {
+                        Random random = new Random();
+                        Card stolenCard = opponent.getHand().remove(random.nextInt(opponent.getHand().size()));
+                        currentPlayer.getHand().add(stolenCard);
+                        JOptionPane.showMessageDialog(this, "You drew: " + getCardType(stolenCard) + " (" + stolenCard.getColor() + ")");
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Opponent has no cards!");
+                    }
+                } else {
+                    StringBuilder handInfo = new StringBuilder(opponent.getName() + "'s hand:\n");
+                    for (int i = 0; i < opponent.getHand().size(); i++) {
+                        Card card = opponent.getHand().get(i);
+                        handInfo.append((i + 1)).append(". ").append(getCardType(card))
+                               .append(" (").append(card.getColor()).append(")\n");
+                    }
+                    JOptionPane.showMessageDialog(this, handInfo.toString());
+                }
+            }
+            
+        } else if (treatment.getType() == TreatmentType.INFORMATION) {
+            // Reikan - steal specific card
+            if (opponent.getHand().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Opponent has no cards to steal!");
+                return;
+            }
+            
+            String[] cardOptions = new String[opponent.getHand().size()];
+            for (int i = 0; i < opponent.getHand().size(); i++) {
+                Card card = opponent.getHand().get(i);
+                cardOptions[i] = (i + 1) + ". " + getCardType(card) + " (" + card.getColor() + ")";
+            }
+            
+            String choice = (String) JOptionPane.showInputDialog(this, 
+                "Select a card to steal from " + opponent.getName() + ":", 
+                "Information", 
+                JOptionPane.QUESTION_MESSAGE, 
+                null, 
+                cardOptions, 
+                cardOptions[0]);
+            
+            if (choice != null) {
+                int cardIndex = Integer.parseInt(choice.substring(0, 1)) - 1;
+                Card stolenCard = opponent.getHand().remove(cardIndex);
+                currentPlayer.getHand().add(stolenCard);
+                JOptionPane.showMessageDialog(this, "You stole: " + getCardType(stolenCard) + " (" + stolenCard.getColor() + ")");
             }
         }
-
-        return organColors.size() >= 4;
     }
-
-    public static void main(String[] args) {
-        System.out.print("Enter the number of players (2-6): ");
-        Scanner scanner = new Scanner(System.in);
-        int numPlayers = scanner.nextInt();
-
-        if (numPlayers < 2 || numPlayers > 6) {
-            System.out.println("Invalid number of players. Using 3 players by default.");
-            numPlayers = 3;
+    
+    private void discardSelectedCard() {
+        String input = JOptionPane.showInputDialog(this, 
+            "Enter the number of the card to discard (1-" + getCurrentPlayer().getHand().size() + "):");
+        
+        if (input == null || input.trim().isEmpty()) return;
+        
+        try {
+            int cardIndex = Integer.parseInt(input.trim()) - 1;
+            Player currentPlayer = getCurrentPlayer();
+            
+            if (cardIndex < 0 || cardIndex >= currentPlayer.getHand().size()) {
+                JOptionPane.showMessageDialog(this, "Invalid card number!");
+                return;
+            }
+            
+            Card discardedCard = currentPlayer.getHand().remove(cardIndex);
+            discardPile.add(discardedCard);
+            JOptionPane.showMessageDialog(this, "You discarded: " + getCardType(discardedCard) + " (" + discardedCard.getColor() + ")");
+            
+            endTurn();
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid number!");
         }
-
-        VirusBoard game = new VirusBoard(numPlayers);
-        game.play();
+    }
+    
+    private void endTurn() {
+        drawCardFromDeck();
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        
+        if (checkWinCondition()) {
+            return;
+        }
+        
+        updateDisplay();
+    }
+    
+    private void drawCardFromDeck() {
+        if (deck.isEmpty() && !discardPile.isEmpty()) {
+            deck.addAll(discardPile);
+            discardPile.clear();
+            Collections.shuffle(deck);
+            JOptionPane.showMessageDialog(this, "Deck reshuffled!");
+        }
+        
+        if (!deck.isEmpty()) {
+            Card drawnCard = deck.remove(0);
+            getCurrentPlayer().getHand().add(drawnCard);
+        }
+    }
+    
+    private boolean checkWinCondition() {
+        for (int i = 0; i < players.size(); i++) {
+            Player player = players.get(i);
+            List<Organ> organs = organsOnTable.get(player);
+            
+            Set<Color> healthyOrganColors = new HashSet<>();
+            for (Organ organ : organs) {
+                if (!organ.isInfected()) {
+                    healthyOrganColors.add(organ.getColor());
+                }
+            }
+            
+            if (healthyOrganColors.size() >= 4) {
+                JOptionPane.showMessageDialog(this, 
+                    "🎉 " + player.getName() + " WINS! 🎉\n" +
+                    "They have 4 different healthy organs!", 
+                    "Game Over", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                int choice = JOptionPane.showConfirmDialog(this, 
+                    "Do you want to play again?", 
+                    "Play Again?", 
+                    JOptionPane.YES_NO_OPTION);
+                
+                if (choice == JOptionPane.YES_OPTION) {
+                    restartGame();
+                } else {
+                    System.exit(0);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private void restartGame() {
+        currentPlayerIndex = 0;
+        organsOnTable.clear();
+        discardPile.clear();
+        
+        for (Player player : players) {
+            player.getHand().clear();
+        }
+        
+        initializeGame();
+        updateDisplay();
+    }
+    
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeel());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            
+            new VirusBoardGUI().setVisible(true);
+        });
     }
 }
