@@ -1,3 +1,23 @@
+package gui; import enums.Color; import enums.TreatmentType; import interfaces.SpecialTreatment; import model.*; import javax.swing.*; import java.awt.*; import java.awt.event.ActionEvent; import java.awt.event.ActionListener; import java.util.*; import java.util.List; /** * GUI Ver
+
+pasted
+
+Continua con el codigo, estas fueron las instrucciones que di:
+
+Quiero que cuando me toque la carta especial reikan en el VirusBoardGUI aparezca Una ventana emergente diciendome que tengo esa carta especial y la puedo jugar, ademas, necesito que agregues al juego las medicinas para asi poder curar los organos
+
+Editar
+Veo que el código se cortó al final. Te ayudo a completar el método drawCardFromDeck() y a mejorar las funcionalidades que solicitas. El código ya tiene implementadas las medicinas y la ventana emergente para Reikan, pero puedo mejorarlo.
+
+
+VirusBoardGUI - Código Completo con Reikan y Medicinas
+Código 
+
+
+
+
+Continua
+
 package gui;
 
 import enums.Color;
@@ -71,6 +91,13 @@ public class VirusBoardGUI extends JFrame {
         deck.add(new Reikan());
         deck.add(new Exchange());
         deck.add(new Control());
+        
+        // Add medicines of different colors
+        for (Color color : Arrays.asList(Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW)) {
+            for (int i = 0; i < 2; i++) {
+                deck.add(new Medicina(color));
+            }
+        }
 
         Collections.shuffle(deck);
     }
@@ -147,16 +174,19 @@ public class VirusBoardGUI extends JFrame {
     private void setupActionButtons() {
         JButton playCardBtn = new JButton("Play Card");
         JButton useSpecialBtn = new JButton("Use Special Treatment");
+        JButton useMedicineBtn = new JButton("Use Medicine");
         JButton discardBtn = new JButton("Discard Card");
         JButton endTurnBtn = new JButton("End Turn");
         
         playCardBtn.addActionListener(e -> playSelectedCard());
         useSpecialBtn.addActionListener(e -> useSpecialTreatment());
+        useMedicineBtn.addActionListener(e -> useMedicine());
         discardBtn.addActionListener(e -> discardSelectedCard());
         endTurnBtn.addActionListener(e -> endTurn());
         
         actionPanel.add(playCardBtn);
         actionPanel.add(useSpecialBtn);
+        actionPanel.add(useMedicineBtn);
         actionPanel.add(discardBtn);
         actionPanel.add(endTurnBtn);
     }
@@ -171,7 +201,107 @@ public class VirusBoardGUI extends JFrame {
         // Update panel backgrounds to show current player
         currentPlayerPanel.setBackground(playerColors[currentPlayerIndex]);
         
+        // Check for special cards and show notifications
+        checkForSpecialCards();
+        
         repaint();
+    }
+    
+    private void checkForSpecialCards() {
+        Player currentPlayer = getCurrentPlayer();
+        boolean hasReikan = false;
+        boolean hasMedicine = false;
+        
+        for (Card card : currentPlayer.getHand()) {
+            if (card instanceof Reikan) {
+                hasReikan = true;
+            }
+            if (card instanceof Medicina) {
+                hasMedicine = true;
+            }
+        }
+        
+        // Show Reikan notification if player has it
+        if (hasReikan) {
+            showReikanNotification();
+        }
+        
+        // Show medicine notification if player has medicine and infected organs
+        if (hasMedicine && hasInfectedOrgans(currentPlayer)) {
+            showMedicineNotification();
+        }
+    }
+    
+    private boolean hasInfectedOrgans(Player player) {
+        List<Organ> organs = organsOnTable.get(player);
+        for (Organ organ : organs) {
+            if (organ.isInfected()) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private void showMedicineNotification() {
+        JOptionPane.showMessageDialog(this, 
+            "💊 ¡Tienes medicina disponible! 💊\n" +
+            "Puedes curar tus órganos infectados usando el botón 'Use Medicine'.",
+            "Medicina Disponible",
+            JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    private void showReikanNotification() {
+        // Create a custom dialog for Reikan notification
+        JDialog reikanDialog = new JDialog(this, "¡Carta Especial Detectada!", true);
+        reikanDialog.setSize(450, 350);
+        reikanDialog.setLocationRelativeTo(this);
+        
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(new java.awt.Color(255, 200, 255)); // Multicolor background
+        
+        // Title
+        JLabel titleLabel = new JLabel("🎴 CARTA ESPECIAL REIKAN 🎴");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        titleLabel.setForeground(java.awt.Color.MAGENTA);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Description
+        JLabel descLabel = new JLabel("<html><center>¡Tienes la carta especial Reikan!<br><br>" +
+                                     "Esta poderosa carta te permite:<br>" +
+                                     "• Robar cualquier carta específica del oponente<br>" +
+                                     "• Ver todas las cartas disponibles<br>" +
+                                     "• Elegir exactamente la que necesitas<br><br>" +
+                                     "¡Úsala sabiamente para obtener ventaja!<br><br>" +
+                                     "Usa el botón 'Use Special Treatment' para jugarla.</center></html>");
+        descLabel.setFont(new Font("Arial", Font.PLAIN, 13));
+        descLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Icon/Symbol
+        JLabel iconLabel = new JLabel("🌟✨🎯✨🌟");
+        iconLabel.setFont(new Font("Arial", Font.BOLD, 28));
+        iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Button
+        JButton okButton = new JButton("¡Entendido!");
+        okButton.setFont(new Font("Arial", Font.BOLD, 14));
+        okButton.setBackground(java.awt.Color.MAGENTA);
+        okButton.setForeground(java.awt.Color.WHITE);
+        okButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        okButton.addActionListener(e -> reikanDialog.dispose());
+        
+        // Add components
+        panel.add(iconLabel);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(titleLabel);
+        panel.add(Box.createVerticalStrut(15));
+        panel.add(descLabel);
+        panel.add(Box.createVerticalStrut(20));
+        panel.add(okButton);
+        
+        reikanDialog.add(panel);
+        reikanDialog.setVisible(true);
     }
     
     private void updateGameBoard() {
@@ -314,8 +444,10 @@ public class VirusBoardGUI extends JFrame {
     private String getCardType(Card card) {
         if (card instanceof Organ) return "ORGAN";
         if (card instanceof Virus) return "VIRUS";
+        if (card instanceof Medicina) return "MEDICINA";
         if (card instanceof SpecialTreatment) {
             SpecialTreatment treatment = (SpecialTreatment) card;
+            if (treatment instanceof Reikan) return "REIKAN";
             return treatment.getType().toString();
         }
         return "CARD";
@@ -354,7 +486,7 @@ public class VirusBoardGUI extends JFrame {
                     endTurn();
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Use 'Use Special Treatment' button for special cards!");
+                JOptionPane.showMessageDialog(this, "Use 'Use Special Treatment' button for special cards or 'Use Medicine' for medicine cards!");
             }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Please enter a valid number!");
@@ -407,6 +539,144 @@ public class VirusBoardGUI extends JFrame {
         }
         
         return false;
+    }
+    
+    private void useMedicine() {
+        Player currentPlayer = getCurrentPlayer();
+        List<Medicina> medicines = new ArrayList<>();
+        List<Integer> medicineIndices = new ArrayList<>();
+        
+        for (int i = 0; i < currentPlayer.getHand().size(); i++) {
+            Card card = currentPlayer.getHand().get(i);
+            if (card instanceof Medicina) {
+                medicines.add((Medicina) card);
+                medicineIndices.add(i);
+            }
+        }
+        
+        if (medicines.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "You don't have any medicine cards!");
+            return;
+        }
+        
+        String[] medicineOptions = new String[medicines.size()];
+        for (int i = 0; i < medicines.size(); i++) {
+            medicineOptions[i] = (i + 1) + ". MEDICINA (" + medicines.get(i).getColor() + ")";
+        }
+        
+        String choice = (String) JOptionPane.showInputDialog(this, 
+            "Select a medicine to use:", 
+            "Use Medicine", 
+            JOptionPane.QUESTION_MESSAGE, 
+            null, 
+            medicineOptions, 
+            medicineOptions[0]);
+        
+        if (choice != null) {
+            int medicineIndex = Integer.parseInt(choice.substring(0, 1)) - 1;
+            Medicina medicine = medicines.get(medicineIndex);
+            
+            // Use the medicine to heal an organ
+            if (useMedicineToHeal(medicine)) {
+                currentPlayer.getHand().remove(medicine);
+                discardPile.add(medicine);
+                endTurn();
+            }
+        }
+    }
+    
+    private boolean useMedicineToHeal(Medicina medicine) {
+        Player currentPlayer = getCurrentPlayer();
+        List<Organ> playerOrgans = organsOnTable.get(currentPlayer);
+        
+        List<Organ> infectedOrgans = new ArrayList<>();
+        for (Organ organ : playerOrgans) {
+            if (organ.isInfected()) {
+                infectedOrgans.add(organ);
+            }
+        }
+        
+        if (infectedOrgans.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "You don't have any infected organs to heal!");
+            return false;
+        }
+        
+        String[] organOptions = new String[infectedOrgans.size()];
+        for (int i = 0; i < infectedOrgans.size(); i++) {
+            organOptions[i] = (i + 1) + ". " + infectedOrgans.get(i).getColor() + " ORGAN (INFECTED)";
+        }
+        
+        String choice = (String) JOptionPane.showInputDialog(this, 
+            "Select an infected organ to heal:", 
+            "Heal Organ", 
+            JOptionPane.QUESTION_MESSAGE, 
+            null, 
+            organOptions, 
+            organOptions[0]);
+        
+        if (choice != null) {
+            int organIndex = Integer.parseInt(choice.substring(0, 1)) - 1;
+            Organ organToHeal = infectedOrgans.get(organIndex);
+            
+            organToHeal.heal();
+            
+            // Show enhanced healing confirmation
+            showHealingSuccessDialog(organToHeal);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private void showHealingSuccessDialog(Organ healedOrgan) {
+        JDialog healDialog = new JDialog(this, "¡Órgano Curado!", true);
+        healDialog.setSize(400, 300);
+        healDialog.setLocationRelativeTo(this);
+        
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(new java.awt.Color(200, 255, 200)); // Light green background
+        
+        // Title
+        JLabel titleLabel = new JLabel("💊 ¡CURACIÓN EXITOSA! 💊");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        titleLabel.setForeground(new java.awt.Color(0, 128, 0));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Icon
+        JLabel iconLabel = new JLabel("✨🏥✨");
+        iconLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Description
+        JLabel descLabel = new JLabel("<html><center>Has curado exitosamente tu órgano " + 
+                                     healedOrgan.getColor() + "!<br><br>" +
+                                     "El órgano ya no está infectado y<br>" +
+                                     "puede volver a funcionar normalmente.<br><br>" +
+                                     "¡Excelente trabajo, doctor!</center></html>");
+        descLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        descLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        // Button
+        JButton okButton = new JButton("¡Perfecto!");
+        okButton.setFont(new Font("Arial", Font.BOLD, 14));
+        okButton.setBackground(new java.awt.Color(0, 128, 0));
+        okButton.setForeground(java.awt.Color.WHITE);
+        okButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        okButton.addActionListener(e -> healDialog.dispose());
+        
+        // Add components
+        panel.add(iconLabel);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(titleLabel);
+        panel.add(Box.createVerticalStrut(15));
+        panel.add(descLabel);
+        panel.add(Box.createVerticalStrut(20));
+        panel.add(okButton);
+        
+        healDialog.add(panel);
+        healDialog.setVisible(true);
     }
     
     private void useSpecialTreatment() {
@@ -627,7 +897,6 @@ public class VirusBoardGUI extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeel());
             } catch (Exception e) {
                 e.printStackTrace();
             }
