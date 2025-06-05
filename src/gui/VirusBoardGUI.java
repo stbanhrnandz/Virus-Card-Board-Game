@@ -1,39 +1,16 @@
-package gui; import enums.Color; import enums.TreatmentType; import interfaces.SpecialTreatment; import model.*; import javax.swing.*; import java.awt.*; import java.awt.event.ActionEvent; import java.awt.event.ActionListener; import java.util.*; import java.util.List; /** * GUI Ver
-
-pasted
-
-Continua con el codigo, estas fueron las instrucciones que di:
-
-Quiero que cuando me toque la carta especial reikan en el VirusBoardGUI aparezca Una ventana emergente diciendome que tengo esa carta especial y la puedo jugar, ademas, necesito que agregues al juego las medicinas para asi poder curar los organos
-
-Editar
-Veo que el código se cortó al final. Te ayudo a completar el método drawCardFromDeck() y a mejorar las funcionalidades que solicitas. El código ya tiene implementadas las medicinas y la ventana emergente para Reikan, pero puedo mejorarlo.
-
-
-VirusBoardGUI - Código Completo con Reikan y Medicinas
-Código 
+package gui; 
+import enums.Color; 
+import enums.TreatmentType; 
+import interfaces.SpecialTreatment; 
+import model.*; 
+import javax.swing.*; 
+import java.awt.*; 
+import java.awt.event.ActionEvent; 
+import java.awt.event.ActionListener; 
+import java.util.*; 
+import java.util.List; 
 
 
-
-
-Continua
-
-package gui;
-
-import enums.Color;
-import enums.TreatmentType;
-import interfaces.SpecialTreatment;
-import model.*;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.*;
-import java.util.List;
-
-/**
- * GUI Version of the Virus Board Game using JFrame
- */
 public class VirusBoardGUI extends JFrame {
     private static final int NUM_PLAYERS = 2;
     private static final int REQUIRED_HAND_SIZE = 3;
