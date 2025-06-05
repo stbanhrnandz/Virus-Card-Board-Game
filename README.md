@@ -1,4 +1,8 @@
 # Virus-Card-Board-Game
+
+PLEASE RUN THE CODE IN VIRUS BOARD GUI
+
+
 🕹️ Game Instructions
 Virus! is a competitive card game where players race to be the first to complete a healthy body while avoiding infections and sabotaging their opponents with special cards.
 
